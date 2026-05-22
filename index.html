@@ -223,6 +223,125 @@
       font-weight: 800;
     }
 
+    .folder-shelf {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin: 18px 0;
+    }
+
+    .folder-tile {
+      display: grid;
+      gap: 10px;
+      justify-items: center;
+      width: 100%;
+      padding: 10px;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .folder-shape {
+      position: relative;
+      width: min(168px, 100%);
+      aspect-ratio: 1.2;
+      border: 2px solid rgba(255, 255, 255, 0.16);
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 34%),
+        linear-gradient(135deg, var(--folder-color, var(--primary)), #ffcf3f);
+      box-shadow: inset 0 -10px 0 rgba(0, 0, 0, 0.18), 0 16px 0 rgba(0, 0, 0, 0.24), 0 22px 34px rgba(0, 0, 0, 0.35);
+      transition: transform 150ms ease, filter 150ms ease;
+    }
+
+    .folder-shape::before {
+      content: "";
+      position: absolute;
+      left: 10px;
+      top: -13px;
+      width: 48%;
+      height: 26px;
+      border: 2px solid rgba(255, 255, 255, 0.16);
+      border-bottom: 0;
+      border-radius: 14px 14px 0 0;
+      background: inherit;
+    }
+
+    .folder-tile:hover .folder-shape,
+    .folder-tile:focus-visible .folder-shape {
+      filter: brightness(1.12);
+      transform: translateY(-3px);
+    }
+
+    .folder-tile:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 4px;
+    }
+
+    .flag-bubble {
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      display: grid;
+      place-items: center;
+      width: 52px;
+      height: 52px;
+      border: 3px solid rgba(255, 255, 255, 0.75);
+      border-radius: 50%;
+      background: #111018;
+      color: #ffffff;
+      box-shadow: 0 8px 14px rgba(0, 0, 0, 0.32);
+      font-weight: 950;
+    }
+
+    .folder-label {
+      display: grid;
+      gap: 4px;
+      font-weight: 900;
+    }
+
+    .folder-label small {
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .add-folder .folder-shape {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 34%),
+        linear-gradient(135deg, #34304a, #171421);
+      border-style: dashed;
+    }
+
+    .add-plus {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      display: grid;
+      place-items: center;
+      background: linear-gradient(180deg, #37d8ff, #1ea8d1);
+      color: #071017;
+      font-size: 2.1rem;
+      font-weight: 950;
+      box-shadow: inset 0 -5px 0 rgba(0, 0, 0, 0.24);
+    }
+
+    .profile-strip {
+      display: grid;
+      gap: 12px;
+      margin: 12px 0 18px;
+    }
+
+    .profile-form {
+      display: grid;
+      gap: 10px;
+    }
+
     .menu-button {
       display: grid;
       grid-template-columns: 44px 1fr;
@@ -386,6 +505,7 @@
 
     textarea,
     input[type="text"],
+    input[type="password"],
     select {
       width: 100%;
       min-height: var(--tap);
@@ -406,6 +526,7 @@
 
     textarea:focus,
     input[type="text"]:focus,
+    input[type="password"]:focus,
     select:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 4px rgba(47, 111, 237, 0.12);
@@ -1110,6 +1231,14 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
+      .folder-shelf {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .profile-form {
+        grid-template-columns: 1fr 1fr auto;
+      }
+
       .menu-button:last-child {
         grid-column: span 2;
       }
@@ -1150,6 +1279,10 @@
 
       .folder-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .folder-shelf {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
       }
 
       .menu-button,
@@ -1233,6 +1366,7 @@
 
     textarea,
     input[type="text"],
+    input[type="password"],
     select,
     table,
     th {
@@ -1311,9 +1445,22 @@
       border: 1px solid #3b3454 !important;
     }
 
-    .progress-fill {
-      background: linear-gradient(90deg, #37d8ff, #ffcf3f) !important;
-    }
+      .progress-fill {
+        background: linear-gradient(90deg, #37d8ff, #ffcf3f) !important;
+      }
+
+      .folder-tile,
+      .folder-tile:hover,
+      .folder-tile:focus-visible {
+        background: transparent !important;
+        box-shadow: none !important;
+        border: 0 !important;
+        color: #f6f3ff !important;
+      }
+
+      .folder-shape {
+        border-color: rgba(255, 255, 255, 0.18) !important;
+      }
   </style>
 </head>
 <body>
@@ -1327,6 +1474,7 @@
       const STORAGE_KEYS = {
         folders: "word_memory_language_folders_v1",
         currentFolderId: "word_memory_current_folder_v1",
+        profile: "word_memory_profile_v1",
         words: "french_memory_words_v1",
         wrongNotes: "french_memory_wrong_notes_v1",
         mistakeCounts: "french_memory_mistake_counts_v1"
@@ -1348,6 +1496,7 @@
       let languageFolders = [];
       let currentFolderId = "";
       let currentFolder = null;
+      let userProfile = null;
       let words = [];
       let wrongNotes = {};
       let mistakeCounts = {};
@@ -1360,6 +1509,7 @@
 
       // 앱을 시작하고 저장된 데이터를 불러옵니다.
       function initializeApp() {
+        userProfile = loadFromStorage(STORAGE_KEYS.profile, null);
         languageFolders = loadLanguageFolders();
         currentFolderId = localStorage.getItem(STORAGE_KEYS.currentFolderId) || (languageFolders[0] && languageFolders[0].id) || "";
         setCurrentFolder(currentFolderId);
@@ -1476,6 +1626,7 @@
       }
 
       function renderFolderHome() {
+        const showCreator = session && session.mode === "folderCreator";
         app.innerHTML = `
           <header class="topbar">
             <div>
@@ -1486,62 +1637,92 @@
             <div class="save-badge">${languageFolders.length}개<br />폴더</div>
           </header>
 
-          <section class="folder-grid" aria-label="언어 폴더">
+          <section class="profile-strip panel">
+            ${userProfile ? `
+              <div class="section-heading">
+                <h2>${escapeHtml(userProfile.username)}님의 보관함</h2>
+                <button class="btn secondary small" type="button" data-action="logout-profile">로그아웃</button>
+              </div>
+              <p class="subtle">현재 버전은 이 브라우저에 저장됩니다. 모바일과 PC 공통 로그인 동기화는 무료 클라우드 DB 연결이 필요합니다.</p>
+            ` : `
+              <div class="section-heading">
+                <h2>로그인</h2>
+              </div>
+              <div class="profile-form">
+                <input id="profileUsername" type="text" placeholder="아이디" autocomplete="username" />
+                <input id="profilePassword" type="password" placeholder="비밀번호" autocomplete="current-password" />
+                <button class="btn accent" type="button" data-action="login-profile">계정 만들기 / 로그인</button>
+              </div>
+              <p class="subtle">지금은 로컬 프로필입니다. 같은 아이디로 여러 기기에서 자동 동기화하려면 Firebase나 Supabase 같은 무료 백엔드 연결이 필요합니다.</p>
+            `}
+          </section>
+
+          <section class="folder-shelf" aria-label="언어 폴더">
             ${languageFolders.map((folder) => `
-              <button class="folder-card" type="button" data-action="open-folder" data-id="${escapeAttr(folder.id)}" style="--folder-color:${escapeAttr(folder.color)}">
-                <span class="folder-emoji">${escapeHtml(folder.emoji)}</span>
-                <span>
-                  <strong>${escapeHtml(folder.name)} 단어 암기</strong>
-                  <span class="folder-meta">
-                    <span>${escapeHtml(folder.nativeName || folder.speechLang)}</span>
-                    <span>${folder.words.length}개 단어</span>
-                    <span>${Object.keys(folder.wrongNotes || {}).length}개 오답</span>
-                  </span>
+              <button class="folder-tile" type="button" data-action="open-folder" data-id="${escapeAttr(folder.id)}" style="--folder-color:${escapeAttr(folder.color)}">
+                <span class="folder-shape">
+                  <span class="flag-bubble">${escapeHtml(folder.emoji)}</span>
+                </span>
+                <span class="folder-label">
+                  <span>${escapeHtml(folder.name)}</span>
+                  <small>${folder.words.length}개 단어 · ${Object.keys(folder.wrongNotes || {}).length}개 오답</small>
                 </span>
               </button>
             `).join("")}
+            <button class="folder-tile add-folder" type="button" data-action="show-folder-creator">
+              <span class="folder-shape">
+                <span class="add-plus">+</span>
+              </span>
+              <span class="folder-label">
+                <span>새 언어</span>
+                <small>폴더 추가</small>
+              </span>
+            </button>
           </section>
 
-          <section class="panel">
-            <div class="section-heading">
-              <h2>새 언어 폴더 만들기</h2>
-            </div>
-            <div class="language-form">
-              <div class="field">
-                <label for="languagePreset">언어 선택</label>
-                <select id="languagePreset">
-                  ${LANGUAGE_PRESETS.map((preset, index) => `<option value="${index}">${escapeHtml(preset.name)}</option>`).join("")}
-                </select>
+          ${showCreator ? `
+            <section class="panel">
+              <div class="section-heading">
+                <h2>새 언어 폴더 만들기</h2>
+                <button class="btn secondary small" type="button" data-action="hide-folder-creator">닫기</button>
               </div>
-              <div class="field">
-                <label for="languageName">폴더 이름</label>
-                <input id="languageName" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].name)}" />
+              <div class="language-form">
+                <div class="field">
+                  <label for="languagePreset">언어 선택</label>
+                  <select id="languagePreset">
+                    ${LANGUAGE_PRESETS.map((preset, index) => `<option value="${index}">${escapeHtml(preset.name)}</option>`).join("")}
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="languageName">폴더 이름</label>
+                  <input id="languageName" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].name)}" />
+                </div>
+                <div class="field">
+                  <label for="languageNativeName">언어 표시</label>
+                  <input id="languageNativeName" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].nativeName)}" />
+                </div>
+                <div class="field">
+                  <label for="languageSpeechLang">음성 코드</label>
+                  <input id="languageSpeechLang" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].speechLang)}" placeholder="fr-FR, en-US, ja-JP" />
+                </div>
+                <div class="field">
+                  <label for="languageEmoji">국가 아이콘</label>
+                  <input id="languageEmoji" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].emoji)}" maxlength="6" />
+                </div>
+                <div class="field">
+                  <label for="languageColor">폴더 색상</label>
+                  <input id="languageColor" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].color)}" />
+                </div>
+                <div class="field wide">
+                  <label for="languageDictionarySearchUrl">네이버 사전 검색 주소</label>
+                  <input id="languageDictionarySearchUrl" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].dictionarySearchUrl)}" />
+                </div>
+                <div class="button-row wide">
+                  <button class="btn accent" type="button" data-action="create-folder">폴더 만들기</button>
+                </div>
               </div>
-              <div class="field">
-                <label for="languageNativeName">언어 표시</label>
-                <input id="languageNativeName" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].nativeName)}" />
-              </div>
-              <div class="field">
-                <label for="languageSpeechLang">음성 코드</label>
-                <input id="languageSpeechLang" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].speechLang)}" placeholder="fr-FR, en-US, ja-JP" />
-              </div>
-              <div class="field">
-                <label for="languageEmoji">폴더 표시</label>
-                <input id="languageEmoji" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].emoji)}" maxlength="6" />
-              </div>
-              <div class="field">
-                <label for="languageColor">포인트 색상</label>
-                <input id="languageColor" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].color)}" />
-              </div>
-              <div class="field wide">
-                <label for="languageDictionarySearchUrl">네이버 사전 검색 주소</label>
-                <input id="languageDictionarySearchUrl" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].dictionarySearchUrl)}" />
-              </div>
-              <div class="button-row wide">
-                <button class="btn accent" type="button" data-action="create-folder">폴더 만들기</button>
-              </div>
-            </div>
-          </section>
+            </section>
+          ` : ""}
         `;
       }
 
@@ -1653,6 +1834,7 @@
                 <textarea id="pasteInput" spellcheck="false" placeholder="DAY 1&#9;Alphabet&#9;알파베&#9;알파벳&#10;DAY 1&#9;Bonjour&#9;봉주르&#9;안녕하세요"></textarea>
               </div>
               <div class="button-row">
+                <button class="btn secondary" type="button" data-action="paste-clipboard">클립보드에서 붙여넣기</button>
                 <button class="btn" type="button" data-action="import-paste">붙여넣은 데이터 불러오기</button>
                 <label class="btn secondary file-button" for="fileInput">
                   .xlsx / .csv 업로드
@@ -2111,6 +2293,18 @@
         }
 
         if (action === "open-folder") openFolder(actionElement.dataset.id);
+        if (action === "show-folder-creator") {
+          session = { mode: "folderCreator" };
+          currentView = "folderHome";
+          render();
+        }
+        if (action === "hide-folder-creator") {
+          session = null;
+          currentView = "folderHome";
+          render();
+        }
+        if (action === "login-profile") loginProfile();
+        if (action === "logout-profile") logoutProfile();
         if (action === "go-folders") {
           session = null;
           currentView = "folderHome";
@@ -2129,6 +2323,7 @@
         if (action === "remove-editor-word") removeEditorWord(actionElement.dataset.id);
         if (action === "open-dictionary-search") openDictionarySearchFromForm();
         if (action === "add-manual-word") addManualWord();
+        if (action === "paste-clipboard") pasteClipboardToImportBox();
         if (action === "import-paste") importPastedData();
         if (action === "clear-words") clearAllWords();
         if (action === "start-study") startStudy();
@@ -2176,6 +2371,41 @@
         session = null;
         currentView = "home";
         render();
+      }
+
+      async function loginProfile() {
+        const username = getInputValue("profileUsername").trim();
+        const password = getInputValue("profilePassword").trim();
+
+        if (!username || !password) {
+          showToast("아이디와 비밀번호를 입력해주세요.", "warn");
+          return;
+        }
+
+        userProfile = {
+          username,
+          passwordHint: simpleHash(password),
+          localOnly: true,
+          signedInAt: new Date().toISOString()
+        };
+        localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(userProfile));
+        render();
+        showToast(`${username} 프로필로 로그인했습니다.`, "success");
+      }
+
+      function logoutProfile() {
+        userProfile = null;
+        localStorage.removeItem(STORAGE_KEYS.profile);
+        render();
+        showToast("로그아웃했습니다.", "success");
+      }
+
+      function simpleHash(value) {
+        let hash = 0;
+        for (let index = 0; index < value.length; index += 1) {
+          hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
+        }
+        return String(hash);
       }
 
       function fillLanguagePreset(index) {
@@ -2403,17 +2633,52 @@
       }
 
       // 붙여넣은 TSV/CSV 데이터를 단어 목록으로 변환합니다.
-      function importPastedData() {
+      async function pasteClipboardToImportBox() {
         const textarea = document.getElementById("pasteInput");
-        const text = textarea ? textarea.value : "";
+        if (!textarea) return;
+
+        if (!navigator.clipboard || !navigator.clipboard.readText) {
+          showToast("이 브라우저에서는 클립보드 읽기가 제한되어 있습니다. 입력창을 길게 눌러 직접 붙여넣어 주세요.", "warn");
+          textarea.focus();
+          return;
+        }
+
+        try {
+          const text = await navigator.clipboard.readText();
+          if (!text.trim()) {
+            showToast("클립보드에 텍스트가 없습니다.", "warn");
+            return;
+          }
+          textarea.value = normalizeSpreadsheetText(text);
+          setImportMessage("클립보드 내용을 입력창에 붙여넣었습니다.", "success");
+        } catch (error) {
+          showToast("클립보드 권한이 막혔습니다. 입력창을 길게 눌러 직접 붙여넣어 주세요.", "warn");
+          textarea.focus();
+        }
+      }
+
+      async function importPastedData() {
+        const textarea = document.getElementById("pasteInput");
+        let text = textarea ? textarea.value : "";
+
+        if (!text.trim() && navigator.clipboard && navigator.clipboard.readText) {
+          try {
+            text = await navigator.clipboard.readText();
+            if (textarea) textarea.value = text;
+          } catch (error) {
+            // Mobile browsers may reject clipboard reads unless the user pasted manually.
+          }
+        }
+
         if (!text.trim()) {
           setImportMessage("붙여넣은 데이터가 없습니다.", "error");
           return;
         }
 
         try {
-          const delimiter = detectDelimiter(text);
-          const rows = parseDelimitedRows(text, delimiter);
+          const cleanText = normalizeSpreadsheetText(text);
+          const delimiter = detectDelimiter(cleanText);
+          const rows = normalizeImportedRows(parseDelimitedRows(cleanText, delimiter));
           const result = rowsToWords(rows);
           finishImport(result);
         } catch (error) {
@@ -2433,7 +2698,7 @@
           } else if (extension === "csv" || extension === "tsv") {
             const text = await file.text();
             const delimiter = extension === "tsv" ? "\t" : detectDelimiter(text);
-            rows = parseDelimitedRows(text, delimiter);
+            rows = normalizeImportedRows(parseDelimitedRows(normalizeSpreadsheetText(text), delimiter));
           } else {
             throw new Error(".xlsx, .csv, .tsv 파일만 업로드할 수 있습니다.");
           }
@@ -2989,6 +3254,27 @@
         const commaCount = (firstLine.match(/,/g) || []).length;
         const semicolonCount = (firstLine.match(/;/g) || []).length;
         return semicolonCount > commaCount ? ";" : ",";
+      }
+
+      function normalizeSpreadsheetText(text) {
+        return String(text || "")
+          .replace(/\u00a0/g, " ")
+          .replace(/\r\n/g, "\n")
+          .replace(/\r/g, "\n")
+          .trim();
+      }
+
+      function normalizeImportedRows(rows) {
+        return rows.map((row) => {
+          if (row.length >= 4) return row;
+          const singleCell = String(row[0] || "").trim();
+          if (!singleCell) return row;
+          if (singleCell.includes("\t")) return singleCell.split("\t");
+          if ((singleCell.match(/,/g) || []).length >= 3) return parseDelimitedRows(singleCell, ",")[0] || row;
+          if ((singleCell.match(/;/g) || []).length >= 3) return parseDelimitedRows(singleCell, ";")[0] || row;
+          const spaced = singleCell.split(/\s{2,}/);
+          return spaced.length >= 4 ? spaced : row;
+        });
       }
 
       // 따옴표가 있는 CSV도 읽을 수 있는 간단한 구분자 파서입니다.

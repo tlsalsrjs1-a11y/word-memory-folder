@@ -875,8 +875,11 @@
     }
 
     .match-card.selected {
-      border-color: var(--accent);
-      background: var(--accent-soft);
+      border-color: #7ee9ff;
+      background: linear-gradient(180deg, #8eeeff, #35c8ff);
+      color: #071017;
+      box-shadow: 0 0 0 4px rgba(126, 233, 255, 0.28), 0 0 26px rgba(55, 216, 255, 0.55), 0 10px 0 rgba(0, 0, 0, 0.26);
+      transform: translateY(-2px);
     }
 
     .match-card.wrong-flash {
@@ -895,6 +898,7 @@
     @keyframes wrongFlash {
       0%, 100% {
         border-color: var(--line);
+        background: linear-gradient(180deg, var(--surface-2), var(--surface));
       }
       35%, 70% {
         border-color: var(--danger);
@@ -1231,6 +1235,14 @@
       color: var(--accent);
     }
 
+    .match-card.selected {
+      border-color: #7ee9ff;
+      background: linear-gradient(180deg, #8eeeff, #35c8ff);
+      color: #071017;
+      box-shadow: 0 0 0 4px rgba(126, 233, 255, 0.28), 0 0 26px rgba(55, 216, 255, 0.55), 0 10px 0 rgba(0, 0, 0, 0.26);
+      transform: translateY(-2px);
+    }
+
     .progress-bar {
       background: #100e18;
       border: 1px solid var(--line);
@@ -1475,9 +1487,24 @@
       border: 1px solid #3b3454 !important;
     }
 
-      .progress-fill {
-        background: linear-gradient(90deg, #37d8ff, #ffcf3f) !important;
-      }
+    .progress-fill {
+      background: linear-gradient(90deg, #37d8ff, #ffcf3f) !important;
+    }
+
+    .match-card.selected {
+      border-color: #7ee9ff !important;
+      background: linear-gradient(180deg, #8eeeff, #35c8ff) !important;
+      color: #071017 !important;
+      box-shadow: 0 0 0 4px rgba(126, 233, 255, 0.28), 0 0 26px rgba(55, 216, 255, 0.55), 0 10px 0 rgba(0, 0, 0, 0.26) !important;
+      transform: translateY(-2px) !important;
+    }
+
+    .match-card.wrong-flash {
+      border-color: #ff4f7b !important;
+      background: #3b1524 !important;
+      color: #ffc4d2 !important;
+      box-shadow: 0 0 0 4px rgba(255, 79, 123, 0.22), 0 0 20px rgba(255, 79, 123, 0.45) !important;
+    }
 
       .folder-tile,
       .folder-tile:hover,

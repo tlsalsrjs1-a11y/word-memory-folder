@@ -429,6 +429,40 @@
       margin-top: 14px;
     }
 
+    .study-stage {
+      display: grid;
+      grid-template-columns: 52px minmax(0, 1fr) 52px;
+      gap: 10px;
+      align-items: center;
+      width: min(760px, 100%);
+      margin: 0 auto;
+    }
+
+    .learn-arrow {
+      display: grid;
+      place-items: center;
+      width: 52px;
+      min-height: 96px;
+      border: 2px solid rgba(126, 233, 255, 0.32);
+      border-radius: 8px;
+      background: linear-gradient(180deg, #2c2740, #171421);
+      color: #7ee9ff;
+      box-shadow: inset 0 -5px 0 rgba(0, 0, 0, 0.22), 0 8px 0 rgba(0, 0, 0, 0.24);
+      font-size: 2rem;
+      font-weight: 950;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .learn-arrow:hover,
+    .learn-arrow:focus-visible {
+      border-color: #7ee9ff;
+      background: linear-gradient(180deg, #8eeeff, #35c8ff);
+      color: #071017;
+      outline: none;
+      transform: translateY(-1px);
+    }
+
     .btn {
       display: inline-flex;
       align-items: center;
@@ -684,12 +718,19 @@
     .quiz-card {
       display: grid;
       gap: 14px;
-      min-height: 310px;
+      width: min(620px, 100%);
+      min-height: 360px;
+      margin: 0 auto;
       padding: 18px;
       border: 1px solid var(--line);
       border-radius: var(--radius);
       background: #ffffff;
       box-shadow: var(--shadow);
+      align-content: center;
+    }
+
+    .quiz-card {
+      padding: clamp(18px, 4vw, 28px);
     }
 
     .study-card {
@@ -1359,6 +1400,17 @@
         grid-template-columns: 1fr;
       }
 
+      .study-stage {
+        grid-template-columns: 44px minmax(0, 1fr) 44px;
+        gap: 7px;
+      }
+
+      .learn-arrow {
+        width: 44px;
+        min-height: 84px;
+        font-size: 1.65rem;
+      }
+
       .pager {
         grid-template-columns: 1fr;
       }
@@ -1540,6 +1592,7 @@
   <main id="app" class="app-shell"></main>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     (() => {
       "use strict";
@@ -1548,6 +1601,7 @@
         folders: "word_memory_language_folders_v1",
         currentFolderId: "word_memory_current_folder_v1",
         profile: "word_memory_profile_v1",
+        cloudConfig: "word_memory_cloud_config_v1",
         words: "french_memory_words_v1",
         wrongNotes: "french_memory_wrong_notes_v1",
         mistakeCounts: "french_memory_mistake_counts_v1"
@@ -1570,6 +1624,11 @@
       let currentFolderId = "";
       let currentFolder = null;
       let userProfile = null;
+      let cloudConfig = null;
+      let cloudClient = null;
+      let cloudUser = null;
+      let cloudSaveTimer = null;
+      let suppressCloudSave = false;
       let words = [];
       let wrongNotes = {};
       let mistakeCounts = {};
@@ -1583,6 +1642,8 @@
       // 앱을 시작하고 저장된 데이터를 불러옵니다.
       function initializeApp() {
         userProfile = loadFromStorage(STORAGE_KEYS.profile, null);
+        cloudConfig = loadFromStorage(STORAGE_KEYS.cloudConfig, null);
+        initializeCloudClient();
         languageFolders = loadLanguageFolders();
         currentFolderId = localStorage.getItem(STORAGE_KEYS.currentFolderId) || (languageFolders[0] && languageFolders[0].id) || "";
         setCurrentFolder(currentFolderId);
@@ -1592,6 +1653,7 @@
         document.addEventListener("submit", handleSubmit);
         document.addEventListener("keydown", handleKeydown);
         render();
+        restoreCloudSession();
       }
 
       // localStorage에서 JSON 데이터를 안전하게 읽습니다.
@@ -1656,6 +1718,7 @@
       function saveLanguageFolders() {
         localStorage.setItem(STORAGE_KEYS.folders, JSON.stringify(languageFolders));
         if (currentFolderId) localStorage.setItem(STORAGE_KEYS.currentFolderId, currentFolderId);
+        if (!suppressCloudSave) queueCloudSave();
       }
 
       function saveCurrentFolder() {
@@ -1676,6 +1739,215 @@
 
       function saveMistakeCounts() {
         saveCurrentFolder();
+      }
+
+      // Supabase 연결 정보를 읽어 클라우드 저장소를 준비합니다.
+      function initializeCloudClient() {
+        cloudClient = null;
+        cloudUser = null;
+        clearTimeout(cloudSaveTimer);
+
+        if (!cloudConfig || !cloudConfig.url || !cloudConfig.anonKey) return;
+
+        try {
+          if (!window.supabase || typeof window.supabase.createClient !== "function") {
+            console.warn("Supabase 라이브러리를 불러오지 못했습니다.");
+            return;
+          }
+          cloudClient = window.supabase.createClient(cloudConfig.url, cloudConfig.anonKey);
+        } catch (error) {
+          console.warn("Supabase 연결을 준비하지 못했습니다.", error);
+          cloudClient = null;
+        }
+      }
+
+      // 사용자가 입력한 Supabase 프로젝트 URL과 anon key를 저장합니다.
+      function saveCloudConfig() {
+        const url = getInputValue("cloudUrl").trim();
+        const anonKey = getInputValue("cloudAnonKey").trim();
+
+        if (!url || !anonKey) {
+          showToast("Supabase URL과 anon public key를 모두 입력해주세요.", "warn");
+          return;
+        }
+
+        cloudConfig = { url, anonKey };
+        localStorage.setItem(STORAGE_KEYS.cloudConfig, JSON.stringify(cloudConfig));
+        initializeCloudClient();
+        render();
+
+        if (cloudClient) {
+          showToast("클라우드 연결 정보를 저장했습니다.", "success");
+          restoreCloudSession();
+        } else {
+          showToast("Supabase 연결 정보를 저장했지만 라이브러리를 아직 불러오지 못했습니다.", "warn");
+        }
+      }
+
+      async function loginWithCloud(email, password) {
+        if (!cloudClient) return false;
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          showToast("클라우드 로그인은 이메일 형식의 아이디가 필요합니다.", "warn");
+          return false;
+        }
+
+        try {
+          let response = await cloudClient.auth.signInWithPassword({ email, password });
+
+          if (response.error) {
+            const signup = await cloudClient.auth.signUp({ email, password });
+            if (signup.error) {
+              showToast("로그인에 실패했습니다. 계정이 이미 있다면 비밀번호를 확인해주세요.", "warn");
+              console.warn("Supabase auth error", signup.error);
+              return false;
+            }
+            response = signup;
+          }
+
+          const activeUser = response.data && (response.data.user || (response.data.session && response.data.session.user));
+          if (!activeUser || !(response.data && response.data.session)) {
+            showToast("가입 메일을 확인한 뒤 다시 로그인해주세요.", "success");
+            return false;
+          }
+
+          cloudUser = activeUser;
+          userProfile = {
+            username: email,
+            localOnly: false,
+            cloud: true,
+            signedInAt: new Date().toISOString()
+          };
+          localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(userProfile));
+          await loadCloudData();
+          render();
+          showToast(`${email} 계정으로 동기화했습니다.`, "success");
+          return true;
+        } catch (error) {
+          console.warn("클라우드 로그인 실패", error);
+          showToast("클라우드 로그인 중 오류가 났습니다. Supabase 설정을 확인해주세요.", "warn");
+          return false;
+        }
+      }
+
+      async function restoreCloudSession() {
+        if (!cloudClient) return;
+
+        try {
+          const { data, error } = await cloudClient.auth.getSession();
+          if (error) throw error;
+          if (!data || !data.session || !data.session.user) return;
+
+          cloudUser = data.session.user;
+          userProfile = {
+            username: cloudUser.email || (userProfile && userProfile.username) || "cloud-user",
+            localOnly: false,
+            cloud: true,
+            signedInAt: new Date().toISOString()
+          };
+          localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(userProfile));
+          await loadCloudData();
+          render();
+        } catch (error) {
+          console.warn("클라우드 세션 복원 실패", error);
+        }
+      }
+
+      function buildCloudPayload() {
+        return {
+          version: 1,
+          currentFolderId,
+          updatedAt: new Date().toISOString(),
+          languageFolders: languageFolders.map((folder) => ({
+            ...folder,
+            words: Array.isArray(folder.words) ? folder.words : [],
+            wrongNotes: folder.wrongNotes || {},
+            mistakeCounts: folder.mistakeCounts || {}
+          }))
+        };
+      }
+
+      function applyCloudPayload(payload) {
+        if (!payload || !Array.isArray(payload.languageFolders) || !payload.languageFolders.length) return false;
+
+        suppressCloudSave = true;
+        try {
+          languageFolders = payload.languageFolders.map(normalizeFolder);
+          currentFolderId = payload.currentFolderId || (languageFolders[0] && languageFolders[0].id) || "";
+          setCurrentFolder(currentFolderId);
+          saveLanguageFolders();
+          return true;
+        } finally {
+          suppressCloudSave = false;
+        }
+      }
+
+      async function loadCloudData() {
+        if (!cloudClient || !cloudUser) return false;
+
+        try {
+          const { data, error } = await cloudClient
+            .from("vocab_profiles")
+            .select("data")
+            .eq("user_id", cloudUser.id)
+            .maybeSingle();
+
+          if (error) throw error;
+
+          if (data && data.data && applyCloudPayload(data.data)) {
+            return true;
+          }
+
+          await saveCloudData({ silent: true });
+          return true;
+        } catch (error) {
+          console.warn("클라우드 데이터 불러오기 실패", error);
+          showToast("클라우드 DB 테이블 설정이 필요합니다. Supabase SQL을 먼저 실행해주세요.", "warn");
+          return false;
+        }
+      }
+
+      function queueCloudSave() {
+        if (!cloudClient || !cloudUser) return;
+        clearTimeout(cloudSaveTimer);
+        cloudSaveTimer = window.setTimeout(() => {
+          saveCloudData({ silent: true });
+        }, 800);
+      }
+
+      async function saveCloudData(options = {}) {
+        const silent = options.silent !== false;
+        if (!cloudClient || !cloudUser) return false;
+
+        try {
+          const { error } = await cloudClient
+            .from("vocab_profiles")
+            .upsert({
+              user_id: cloudUser.id,
+              data: buildCloudPayload(),
+              updated_at: new Date().toISOString()
+            }, { onConflict: "user_id" });
+
+          if (error) throw error;
+          if (!silent) showToast("클라우드에 저장했습니다.", "success");
+          return true;
+        } catch (error) {
+          console.warn("클라우드 저장 실패", error);
+          if (!silent) showToast("클라우드 저장에 실패했습니다. Supabase 설정을 확인해주세요.", "warn");
+          return false;
+        }
+      }
+
+      async function syncCloudNow() {
+        if (!cloudClient) {
+          showToast("먼저 Supabase 연결 정보를 저장해주세요.", "warn");
+          return;
+        }
+        if (!cloudUser) {
+          showToast("클라우드 계정으로 로그인해주세요.", "warn");
+          return;
+        }
+        await saveCloudData({ silent: false });
       }
 
       // 현재 화면 이름에 맞는 UI를 그립니다.
@@ -1716,18 +1988,31 @@
                 <h2>${escapeHtml(userProfile.username)}님의 보관함</h2>
                 <button class="btn secondary small" type="button" data-action="logout-profile">로그아웃</button>
               </div>
-              <p class="subtle">현재 버전은 이 브라우저에 저장됩니다. 모바일과 PC 공통 로그인 동기화는 무료 클라우드 DB 연결이 필요합니다.</p>
+              <p class="subtle">${cloudUser ? "클라우드 동기화가 켜져 있습니다. 다른 기기에서도 같은 계정으로 로그인하면 단어가 불러와집니다." : "현재는 이 브라우저에만 저장됩니다. 아래 Supabase 무료 DB를 연결하면 기기 간 동기화가 됩니다."}</p>
+              ${cloudUser ? `<button class="btn small" type="button" data-action="sync-cloud-now">지금 동기화</button>` : ""}
+              ${!cloudUser && cloudClient ? `
+                <div class="profile-form">
+                  <input id="profileUsername" type="text" placeholder="이메일 아이디" autocomplete="username" />
+                  <input id="profilePassword" type="password" placeholder="비밀번호" autocomplete="current-password" />
+                  <button class="btn accent" type="button" data-action="login-profile">클라우드 계정 연결</button>
+                </div>
+              ` : ""}
             ` : `
               <div class="section-heading">
                 <h2>로그인</h2>
               </div>
               <div class="profile-form">
-                <input id="profileUsername" type="text" placeholder="아이디" autocomplete="username" />
+                <input id="profileUsername" type="text" placeholder="이메일 아이디" autocomplete="username" />
                 <input id="profilePassword" type="password" placeholder="비밀번호" autocomplete="current-password" />
                 <button class="btn accent" type="button" data-action="login-profile">계정 만들기 / 로그인</button>
               </div>
-              <p class="subtle">지금은 로컬 프로필입니다. 같은 아이디로 여러 기기에서 자동 동기화하려면 Firebase나 Supabase 같은 무료 백엔드 연결이 필요합니다.</p>
+              <p class="subtle">${cloudClient ? "Supabase 연결됨: 이메일/비밀번호로 로그인하면 계정별 단어가 동기화됩니다." : "Supabase 무료 DB를 먼저 연결하면 모바일과 PC에서 같은 계정 단어를 볼 수 있습니다."}</p>
             `}
+            <div class="profile-form">
+              <input id="cloudUrl" type="text" placeholder="Supabase Project URL" value="${escapeAttr(cloudConfig ? cloudConfig.url : "")}" />
+              <input id="cloudAnonKey" type="password" placeholder="Supabase anon public key" value="${escapeAttr(cloudConfig ? cloudConfig.anonKey : "")}" />
+              <button class="btn secondary" type="button" data-action="save-cloud-config">클라우드 연결 저장</button>
+            </div>
           </section>
 
           <section class="folder-shelf" aria-label="언어 폴더">
@@ -2060,23 +2345,22 @@
             </div>
           </section>
 
-          <section class="study-card" role="button" tabindex="0" data-action="reveal-meaning">
-            <span class="pill">${escapeHtml(word.day)}</span>
-            <h2 class="word-title">${escapeHtml(word.word)}</h2>
-            <p class="pronunciation">${escapeHtml(word.pronunciation || "발음 정보 없음")}</p>
-            <div id="meaningBox" class="meaning-box hidden">
-              <span>뜻</span>
-              <strong>${escapeHtml(word.meaning)}</strong>
-            </div>
-            <div class="dictionary-row">
-              <button class="btn secondary small" type="button" data-action="speak-current">발음 듣기</button>
-              <a href="${naverSearchUrl(word.word)}" target="_blank" rel="noopener noreferrer">네이버 사전에서 보기</a>
-            </div>
-          </section>
-
-          <div class="button-split">
-            <button class="btn secondary" type="button" data-action="learn-again">다시 암기</button>
-            <button class="btn accent" type="button" data-action="learn-known">암기 완료</button>
+          <div class="study-stage">
+            <button class="learn-arrow" type="button" data-action="learn-again" aria-label="다시 암기">&lt;</button>
+            <section class="study-card" role="button" tabindex="0" data-action="reveal-meaning">
+              <span class="pill">${escapeHtml(word.day)}</span>
+              <h2 class="word-title">${escapeHtml(word.word)}</h2>
+              <p class="pronunciation">${escapeHtml(word.pronunciation || "발음 정보 없음")}</p>
+              <div id="meaningBox" class="meaning-box hidden">
+                <span>뜻</span>
+                <strong>${escapeHtml(word.meaning)}</strong>
+              </div>
+              <div class="dictionary-row">
+                <button class="btn secondary small" type="button" data-action="speak-current">발음 듣기</button>
+                <a href="${naverSearchUrl(word.word)}" target="_blank" rel="noopener noreferrer">네이버 사전에서 보기</a>
+              </div>
+            </section>
+            <button class="learn-arrow" type="button" data-action="learn-known" aria-label="암기 완료">&gt;</button>
           </div>
           ${renderFooter()}
         `;
@@ -2378,6 +2662,8 @@
         }
         if (action === "login-profile") loginProfile();
         if (action === "logout-profile") logoutProfile();
+        if (action === "save-cloud-config") saveCloudConfig();
+        if (action === "sync-cloud-now") syncCloudNow();
         if (action === "go-folders") {
           session = null;
           currentView = "folderHome";
@@ -2455,6 +2741,11 @@
           return;
         }
 
+        if (cloudClient) {
+          await loginWithCloud(username, password);
+          return;
+        }
+
         userProfile = {
           username,
           passwordHint: simpleHash(password),
@@ -2463,10 +2754,18 @@
         };
         localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(userProfile));
         render();
-        showToast(`${username} 프로필로 로그인했습니다.`, "success");
+        showToast(`${username} 로컬 프로필로 로그인했습니다.`, "success");
       }
 
-      function logoutProfile() {
+      async function logoutProfile() {
+        if (cloudClient && cloudUser) {
+          try {
+            await cloudClient.auth.signOut();
+          } catch (error) {
+            console.warn("클라우드 로그아웃 실패", error);
+          }
+        }
+        cloudUser = null;
         userProfile = null;
         localStorage.removeItem(STORAGE_KEYS.profile);
         render();

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>프랑스어 단어 암기장</title>
+  <title>단어 암기 폴더</title>
   <style>
     :root {
       --bg: #f6f7fb;
@@ -161,6 +161,65 @@
       margin: 18px 0;
     }
 
+    .folder-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .folder-card {
+      display: grid;
+      grid-template-columns: 52px 1fr;
+      gap: 12px;
+      align-items: center;
+      width: 100%;
+      min-height: 92px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+      box-shadow: var(--shadow);
+      color: var(--text);
+      cursor: pointer;
+      text-align: left;
+      transition: transform 150ms ease, border-color 150ms ease;
+    }
+
+    .folder-card:hover,
+    .folder-card:focus-visible {
+      border-color: var(--folder-color, var(--primary));
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    .folder-emoji {
+      display: grid;
+      place-items: center;
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: var(--folder-color, var(--primary));
+      color: #ffffff;
+      font-size: 1.55rem;
+      font-weight: 900;
+    }
+
+    .folder-card strong {
+      display: block;
+      font-size: 1.13rem;
+    }
+
+    .folder-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 800;
+    }
+
     .menu-button {
       display: grid;
       grid-template-columns: 44px 1fr;
@@ -301,6 +360,11 @@
     }
 
     .form-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .language-form {
       display: grid;
       gap: 12px;
     }
@@ -844,12 +908,24 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
+      .folder-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
       .menu-button:last-child {
         grid-column: span 2;
       }
 
       .form-grid.range {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .language-form {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .language-form .wide {
+        grid-column: 1 / -1;
       }
 
       .answer-form {
@@ -872,6 +948,10 @@
     @media (min-width: 920px) {
       .menu-grid {
         grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+
+      .folder-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
       .menu-button,
@@ -925,19 +1005,33 @@
       "use strict";
 
       const STORAGE_KEYS = {
+        folders: "word_memory_language_folders_v1",
+        currentFolderId: "word_memory_current_folder_v1",
         words: "french_memory_words_v1",
         wrongNotes: "french_memory_wrong_notes_v1",
         mistakeCounts: "french_memory_mistake_counts_v1"
       };
 
-      const NAVER_MAIN_URL = "https://dict.naver.com/frkodict/#/main";
+      const DEFAULT_DICT_MAIN_URL = "https://dict.naver.com/";
+      const LANGUAGE_PRESETS = [
+        { name: "프랑스어", nativeName: "Francais", emoji: "FR", speechLang: "fr-FR", color: "#2f6fed", dictionaryMainUrl: "https://dict.naver.com/frkodict/#/main", dictionarySearchUrl: "https://dict.naver.com/frkodict/#/search?query=" },
+        { name: "영어", nativeName: "English", emoji: "EN", speechLang: "en-US", color: "#12a37f", dictionaryMainUrl: "https://en.dict.naver.com/#/main", dictionarySearchUrl: "https://en.dict.naver.com/#/search?query=" },
+        { name: "일본어", nativeName: "日本語", emoji: "JP", speechLang: "ja-JP", color: "#ef4444", dictionaryMainUrl: "https://ja.dict.naver.com/#/main", dictionarySearchUrl: "https://ja.dict.naver.com/#/search?query=" },
+        { name: "중국어", nativeName: "中文", emoji: "CN", speechLang: "zh-CN", color: "#f59e0b", dictionaryMainUrl: "https://zh.dict.naver.com/#/main", dictionarySearchUrl: "https://zh.dict.naver.com/#/search?query=" },
+        { name: "스페인어", nativeName: "Espanol", emoji: "ES", speechLang: "es-ES", color: "#8b5cf6", dictionaryMainUrl: "https://dict.naver.com/eskodict/#/main", dictionarySearchUrl: "https://dict.naver.com/eskodict/#/search?query=" },
+        { name: "독일어", nativeName: "Deutsch", emoji: "DE", speechLang: "de-DE", color: "#111827", dictionaryMainUrl: "https://dict.naver.com/dekodict/#/main", dictionarySearchUrl: "https://dict.naver.com/dekodict/#/search?query=" },
+        { name: "기타 언어", nativeName: "Custom", emoji: "ETC", speechLang: "en-US", color: "#64748b", dictionaryMainUrl: "https://dict.naver.com/", dictionarySearchUrl: "https://dict.naver.com/search.dict?query=" }
+      ];
       const app = document.getElementById("app");
       const toast = document.getElementById("toast");
 
+      let languageFolders = [];
+      let currentFolderId = "";
+      let currentFolder = null;
       let words = [];
       let wrongNotes = {};
       let mistakeCounts = {};
-      let currentView = "home";
+      let currentView = "folderHome";
       let session = null;
       let toastTimer = null;
       let autoSpeakTimer = null;
@@ -946,9 +1040,10 @@
 
       // 앱을 시작하고 저장된 데이터를 불러옵니다.
       function initializeApp() {
-        words = loadFromStorage(STORAGE_KEYS.words, []);
-        wrongNotes = loadFromStorage(STORAGE_KEYS.wrongNotes, {});
-        mistakeCounts = loadFromStorage(STORAGE_KEYS.mistakeCounts, {});
+        languageFolders = loadLanguageFolders();
+        currentFolderId = localStorage.getItem(STORAGE_KEYS.currentFolderId) || (languageFolders[0] && languageFolders[0].id) || "";
+        setCurrentFolder(currentFolderId);
+        saveLanguageFolders();
         document.addEventListener("click", handleClick);
         document.addEventListener("change", handleChange);
         document.addEventListener("submit", handleSubmit);
@@ -967,21 +1062,84 @@
         }
       }
 
+      function loadLanguageFolders() {
+        const storedFolders = loadFromStorage(STORAGE_KEYS.folders, null);
+        if (Array.isArray(storedFolders) && storedFolders.length) {
+          return storedFolders.map(normalizeFolder);
+        }
+
+        const legacyWords = loadFromStorage(STORAGE_KEYS.words, []);
+        const legacyWrongNotes = loadFromStorage(STORAGE_KEYS.wrongNotes, {});
+        const legacyMistakeCounts = loadFromStorage(STORAGE_KEYS.mistakeCounts, {});
+        const frenchPreset = LANGUAGE_PRESETS[0];
+
+        return [normalizeFolder({
+          ...frenchPreset,
+          id: "folder-french",
+          words: Array.isArray(legacyWords) ? legacyWords : [],
+          wrongNotes: legacyWrongNotes || {},
+          mistakeCounts: legacyMistakeCounts || {},
+          createdAt: new Date().toISOString()
+        })];
+      }
+
+      function normalizeFolder(folder) {
+        const preset = LANGUAGE_PRESETS.find((item) => item.name === folder.name) || LANGUAGE_PRESETS[0];
+        return {
+          id: folder.id || createFolderId(folder.name || preset.name),
+          name: folder.name || preset.name,
+          nativeName: folder.nativeName || preset.nativeName || "",
+          emoji: folder.emoji || preset.emoji || "LANG",
+          speechLang: folder.speechLang || preset.speechLang || "en-US",
+          color: folder.color || preset.color || "#2f6fed",
+          dictionaryMainUrl: folder.dictionaryMainUrl || preset.dictionaryMainUrl || DEFAULT_DICT_MAIN_URL,
+          dictionarySearchUrl: folder.dictionarySearchUrl || preset.dictionarySearchUrl || "https://dict.naver.com/search.dict?query=",
+          words: Array.isArray(folder.words) ? folder.words : [],
+          wrongNotes: folder.wrongNotes || {},
+          mistakeCounts: folder.mistakeCounts || {},
+          createdAt: folder.createdAt || new Date().toISOString()
+        };
+      }
+
+      function setCurrentFolder(folderId) {
+        currentFolder = languageFolders.find((folder) => folder.id === folderId) || languageFolders[0] || null;
+        currentFolderId = currentFolder ? currentFolder.id : "";
+        words = currentFolder ? currentFolder.words : [];
+        wrongNotes = currentFolder ? currentFolder.wrongNotes : {};
+        mistakeCounts = currentFolder ? currentFolder.mistakeCounts : {};
+        if (currentFolderId) localStorage.setItem(STORAGE_KEYS.currentFolderId, currentFolderId);
+      }
+
+      function saveLanguageFolders() {
+        localStorage.setItem(STORAGE_KEYS.folders, JSON.stringify(languageFolders));
+        if (currentFolderId) localStorage.setItem(STORAGE_KEYS.currentFolderId, currentFolderId);
+      }
+
+      function saveCurrentFolder() {
+        if (!currentFolder) return;
+        currentFolder.words = words;
+        currentFolder.wrongNotes = wrongNotes;
+        currentFolder.mistakeCounts = mistakeCounts;
+        saveLanguageFolders();
+      }
+
       function saveWords() {
-        localStorage.setItem(STORAGE_KEYS.words, JSON.stringify(words));
+        saveCurrentFolder();
       }
 
       function saveWrongNotes() {
-        localStorage.setItem(STORAGE_KEYS.wrongNotes, JSON.stringify(wrongNotes));
+        saveCurrentFolder();
       }
 
       function saveMistakeCounts() {
-        localStorage.setItem(STORAGE_KEYS.mistakeCounts, JSON.stringify(mistakeCounts));
+        saveCurrentFolder();
       }
 
       // 현재 화면 이름에 맞는 UI를 그립니다.
       function render() {
         clearTimeout(autoSpeakTimer);
+        app.style.setProperty("--primary", currentView === "folderHome" || !currentFolder ? "#2f6fed" : currentFolder.color);
+        if (currentView === "folderHome") renderFolderHome();
         if (currentView === "home") renderHome();
         if (currentView === "studySetup") renderStudySetup();
         if (currentView === "studyCard") renderStudyCard();
@@ -996,16 +1154,95 @@
         if (currentView === "dayEditor") renderDayEditor();
       }
 
+      function renderFolderHome() {
+        app.innerHTML = `
+          <header class="topbar">
+            <div>
+              <p class="eyebrow">Vocabulary Folders</p>
+              <h1>단어 암기 폴더</h1>
+              <p class="subtle">배우고 싶은 언어를 폴더처럼 나누어 저장하고 학습하세요.</p>
+            </div>
+            <div class="save-badge">${languageFolders.length}개<br />폴더</div>
+          </header>
+
+          <section class="folder-grid" aria-label="언어 폴더">
+            ${languageFolders.map((folder) => `
+              <button class="folder-card" type="button" data-action="open-folder" data-id="${escapeAttr(folder.id)}" style="--folder-color:${escapeAttr(folder.color)}">
+                <span class="folder-emoji">${escapeHtml(folder.emoji)}</span>
+                <span>
+                  <strong>${escapeHtml(folder.name)} 단어 암기</strong>
+                  <span class="folder-meta">
+                    <span>${escapeHtml(folder.nativeName || folder.speechLang)}</span>
+                    <span>${folder.words.length}개 단어</span>
+                    <span>${Object.keys(folder.wrongNotes || {}).length}개 오답</span>
+                  </span>
+                </span>
+              </button>
+            `).join("")}
+          </section>
+
+          <section class="panel">
+            <div class="section-heading">
+              <h2>새 언어 폴더 만들기</h2>
+            </div>
+            <div class="language-form">
+              <div class="field">
+                <label for="languagePreset">언어 선택</label>
+                <select id="languagePreset">
+                  ${LANGUAGE_PRESETS.map((preset, index) => `<option value="${index}">${escapeHtml(preset.name)}</option>`).join("")}
+                </select>
+              </div>
+              <div class="field">
+                <label for="languageName">폴더 이름</label>
+                <input id="languageName" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].name)}" />
+              </div>
+              <div class="field">
+                <label for="languageNativeName">언어 표시</label>
+                <input id="languageNativeName" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].nativeName)}" />
+              </div>
+              <div class="field">
+                <label for="languageSpeechLang">음성 코드</label>
+                <input id="languageSpeechLang" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].speechLang)}" placeholder="fr-FR, en-US, ja-JP" />
+              </div>
+              <div class="field">
+                <label for="languageEmoji">폴더 표시</label>
+                <input id="languageEmoji" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].emoji)}" maxlength="6" />
+              </div>
+              <div class="field">
+                <label for="languageColor">포인트 색상</label>
+                <input id="languageColor" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].color)}" />
+              </div>
+              <div class="field wide">
+                <label for="languageDictionarySearchUrl">네이버 사전 검색 주소</label>
+                <input id="languageDictionarySearchUrl" type="text" value="${escapeAttr(LANGUAGE_PRESETS[0].dictionarySearchUrl)}" />
+              </div>
+              <div class="button-row wide">
+                <button class="btn accent" type="button" data-action="create-folder">폴더 만들기</button>
+              </div>
+            </div>
+          </section>
+        `;
+      }
+
       function renderHome() {
+        if (!currentFolder) {
+          currentView = "folderHome";
+          render();
+          return;
+        }
         const dayCounts = getDayCounts();
         app.innerHTML = `
           <header class="topbar">
             <div>
-              <p class="eyebrow">French Vocabulary</p>
-              <h1>프랑스어 단어 암기장</h1>
+              <p class="eyebrow">${escapeHtml(currentFolder.nativeName || currentFolder.speechLang)}</p>
+              <h1>${escapeHtml(currentFolder.name)} 단어 암기장</h1>
             </div>
             <div class="save-badge">${words.length}개<br />저장됨</div>
           </header>
+          <div class="button-row">
+            <button class="btn secondary small" type="button" data-action="go-folders">폴더 선택</button>
+            <button class="btn ghost-danger small" type="button" data-action="delete-folder">현재 폴더 삭제</button>
+          </div>
 
           <section class="menu-grid" aria-label="메인 메뉴">
             ${menuButton("1", "단어외우기", "studySetup")}
@@ -1034,6 +1271,35 @@
               </div>
               <div id="importMessage" class="message" aria-live="polite"></div>
             </div>
+          </section>
+
+          <section class="panel">
+            <div class="section-heading">
+              <h2>단어 직접 추가</h2>
+            </div>
+            <div class="form-grid range">
+              <div class="field">
+                <label for="manualDay">DAY</label>
+                <input id="manualDay" type="text" value="${escapeAttr(getLastDay() || "DAY 1")}" />
+              </div>
+              <div class="field">
+                <label for="manualWord">단어</label>
+                <input id="manualWord" type="text" placeholder="검색하거나 추가할 단어" />
+              </div>
+              <div class="field">
+                <label for="manualPronunciation">발음</label>
+                <input id="manualPronunciation" type="text" placeholder="비워도 저장 가능" />
+              </div>
+              <div class="field">
+                <label for="manualMeaning">뜻</label>
+                <input id="manualMeaning" type="text" placeholder="한국어 뜻" />
+              </div>
+            </div>
+            <div class="button-row" style="margin-top: 14px;">
+              <button class="btn secondary" type="button" data-action="open-dictionary-search">네이버 사전 검색</button>
+              <button class="btn accent" type="button" data-action="add-manual-word">단어 추가</button>
+            </div>
+            <div class="message">사전 검색은 새 탭으로 열립니다. 뜻을 확인한 뒤 이 화면에 직접 입력해서 저장하세요.</div>
           </section>
 
           <section class="panel">
@@ -1148,9 +1414,10 @@
       }
 
       function renderFooter() {
+        const folder = currentFolder || LANGUAGE_PRESETS[0];
         return `
           <footer class="footer-link">
-            <a href="${NAVER_MAIN_URL}" target="_blank" rel="noopener noreferrer">네이버 프랑스어 사전 바로가기</a>
+            <a href="${escapeAttr(dictionaryMainUrl(folder))}" target="_blank" rel="noopener noreferrer">네이버 사전 바로가기</a>
           </footer>
         `;
       }
@@ -1328,7 +1595,7 @@
             `}
             <form class="answer-form" data-form="test-answer">
               <label class="sr-only" for="answerInput">정답 입력</label>
-              <input id="answerInput" type="text" autocomplete="off" spellcheck="false" ${session.locked ? "disabled" : ""} placeholder="${isMeaning ? "한국어 뜻 입력" : "프랑스어 단어 입력"}" />
+              <input id="answerInput" type="text" autocomplete="off" spellcheck="false" ${session.locked ? "disabled" : ""} placeholder="${isMeaning ? "한국어 뜻 입력" : `${currentFolder ? currentFolder.name : "학습 언어"} 단어 입력`}" />
               <button class="btn" type="submit" ${session.locked ? "disabled" : ""}>제출</button>
             </form>
             <div class="feedback ${feedback.type}">${escapeHtml(feedback.text)}</div>
@@ -1513,6 +1780,14 @@
           render();
         }
 
+        if (action === "open-folder") openFolder(actionElement.dataset.id);
+        if (action === "go-folders") {
+          session = null;
+          currentView = "folderHome";
+          render();
+        }
+        if (action === "create-folder") createLanguageFolder();
+        if (action === "delete-folder") deleteCurrentFolder();
         if (action === "go-home") {
           session = null;
           currentView = "home";
@@ -1522,6 +1797,8 @@
         if (action === "open-day-editor") openDayEditor(actionElement.dataset.day);
         if (action === "save-day-editor") saveDayEditor();
         if (action === "remove-editor-word") removeEditorWord(actionElement.dataset.id);
+        if (action === "open-dictionary-search") openDictionarySearchFromForm();
+        if (action === "add-manual-word") addManualWord();
         if (action === "import-paste") importPastedData();
         if (action === "clear-words") clearAllWords();
         if (action === "start-study") startStudy();
@@ -1545,6 +1822,9 @@
           if (file) importFileData(file);
           event.target.value = "";
         }
+        if (event.target.id === "languagePreset") {
+          fillLanguagePreset(Number(event.target.value));
+        }
       }
 
       function handleSubmit(event) {
@@ -1559,6 +1839,120 @@
           event.preventDefault();
           revealMeaning();
         }
+      }
+
+      function openFolder(folderId) {
+        setCurrentFolder(folderId);
+        session = null;
+        currentView = "home";
+        render();
+      }
+
+      function fillLanguagePreset(index) {
+        const preset = LANGUAGE_PRESETS[index] || LANGUAGE_PRESETS[0];
+        setInputValue("languageName", preset.name);
+        setInputValue("languageNativeName", preset.nativeName);
+        setInputValue("languageSpeechLang", preset.speechLang);
+        setInputValue("languageEmoji", preset.emoji);
+        setInputValue("languageColor", preset.color);
+        setInputValue("languageDictionarySearchUrl", preset.dictionarySearchUrl);
+      }
+
+      function setInputValue(id, value) {
+        const input = document.getElementById(id);
+        if (input) input.value = value || "";
+      }
+
+      function createLanguageFolder() {
+        const presetIndex = Number(getInputValue("languagePreset") || 0);
+        const preset = LANGUAGE_PRESETS[presetIndex] || LANGUAGE_PRESETS[0];
+        const name = getInputValue("languageName").trim() || preset.name;
+        const nativeName = getInputValue("languageNativeName").trim() || preset.nativeName;
+        const speechLang = getInputValue("languageSpeechLang").trim() || preset.speechLang;
+        const emoji = getInputValue("languageEmoji").trim() || preset.emoji;
+        const color = getInputValue("languageColor").trim() || preset.color;
+        const dictionarySearchUrl = getInputValue("languageDictionarySearchUrl").trim() || preset.dictionarySearchUrl;
+
+        if (languageFolders.some((folder) => folder.name.trim().toLowerCase() === name.toLowerCase())) {
+          showToast("이미 같은 이름의 언어 폴더가 있습니다.", "warn");
+          return;
+        }
+
+        const folder = normalizeFolder({
+          ...preset,
+          id: createFolderId(name),
+          name,
+          nativeName,
+          speechLang,
+          emoji,
+          color,
+          dictionarySearchUrl,
+          dictionaryMainUrl: preset.dictionaryMainUrl || DEFAULT_DICT_MAIN_URL,
+          words: [],
+          wrongNotes: {},
+          mistakeCounts: {},
+          createdAt: new Date().toISOString()
+        });
+
+        languageFolders.push(folder);
+        saveLanguageFolders();
+        openFolder(folder.id);
+        showToast(`${folder.name} 폴더를 만들었습니다.`, "success");
+      }
+
+      function deleteCurrentFolder() {
+        if (!currentFolder) return;
+        if (languageFolders.length <= 1) {
+          showToast("언어 폴더는 최소 1개가 필요합니다.", "warn");
+          return;
+        }
+        if (!confirm(`${currentFolder.name} 폴더와 저장된 단어를 삭제할까요?`)) return;
+
+        const deletedName = currentFolder.name;
+        languageFolders = languageFolders.filter((folder) => folder.id !== currentFolder.id);
+        setCurrentFolder(languageFolders[0].id);
+        saveLanguageFolders();
+        session = null;
+        currentView = "folderHome";
+        render();
+        showToast(`${deletedName} 폴더를 삭제했습니다.`, "success");
+      }
+
+      function addManualWord() {
+        const day = normalizeDay(getInputValue("manualDay") || "DAY 1");
+        const word = getInputValue("manualWord").trim();
+        const pronunciation = getInputValue("manualPronunciation").trim();
+        const meaning = getInputValue("manualMeaning").trim();
+
+        if (!word || !meaning) {
+          showToast("단어와 뜻은 꼭 입력해주세요.", "error");
+          return;
+        }
+
+        const newWord = makeWord(day, word, pronunciation, meaning);
+        if (words.some((item) => item.id === newWord.id)) {
+          showToast("이미 같은 단어가 저장되어 있습니다.", "warn");
+          return;
+        }
+
+        words = words.concat(newWord).sort(compareWords);
+        saveWords();
+        render();
+        showToast("단어를 추가했습니다.", "success");
+      }
+
+      function openDictionarySearchFromForm() {
+        const query = getInputValue("manualWord").trim();
+        if (!query) {
+          showToast("검색할 단어를 먼저 입력해주세요.", "warn");
+          return;
+        }
+        window.open(naverSearchUrl(query), "_blank", "noopener,noreferrer");
+      }
+
+      function getInputValue(id) {
+        const input = document.getElementById(id);
+        return input ? input.value : "";
       }
 
       function openDayEditor(day) {
@@ -2186,7 +2580,7 @@
           if (spokenCount >= times) return;
 
           const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = "fr-FR";
+          utterance.lang = getCurrentSpeechLang();
           utterance.rate = 0.78;
           utterance.pitch = 1;
           if (frenchVoice) utterance.voice = frenchVoice;
@@ -2372,6 +2766,15 @@
 
       function createWordId(day, word, meaning) {
         return [day, word.toLowerCase(), meaning.toLowerCase()].join("|");
+      }
+
+      function createFolderId(name) {
+        const safeName = String(name || "language")
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9가-힣]+/g, "-")
+          .replace(/^-+|-+$/g, "") || "language";
+        return `folder-${safeName}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
       }
 
       // xlsx 파일에서 첫 번째 워크시트의 행 데이터를 읽습니다.
@@ -2578,7 +2981,22 @@
       }
 
       function naverSearchUrl(word) {
-        return `https://dict.naver.com/frkodict/#/search?query=${encodeURIComponent(word)}`;
+        const folder = currentFolder || LANGUAGE_PRESETS[0];
+        const baseUrl = folder.dictionarySearchUrl || "https://dict.naver.com/search.dict?query=";
+        const encodedWord = encodeURIComponent(word);
+        if (baseUrl.includes("{query}")) return baseUrl.replace("{query}", encodedWord);
+        if (/[?&=]$/.test(baseUrl)) return `${baseUrl}${encodedWord}`;
+        return `${baseUrl}${baseUrl.includes("?") ? "&query=" : "?query="}${encodedWord}`;
+      }
+
+      function dictionaryMainUrl(folder) {
+        if (folder.dictionaryMainUrl) return folder.dictionaryMainUrl;
+        if (folder.dictionarySearchUrl) return folder.dictionarySearchUrl.replace(/(#\/search\?query=|search\.dict\?query=).*$/i, "#/main");
+        return DEFAULT_DICT_MAIN_URL;
+      }
+
+      function getCurrentSpeechLang() {
+        return (currentFolder && currentFolder.speechLang) || "fr-FR";
       }
 
       function focusAnswerInput() {
